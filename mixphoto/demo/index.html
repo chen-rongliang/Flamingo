@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <div id="APP">
+        <img id="share">
+        <a id="down">测试保存图片</a>
+    </div>
+    <script src="/mixphoto.js"></script>
+    <!-- <script src="/qrious.min.js"></script> 不用这咯 -->
+    <script>
+        (function (win, doc) {
+
+            var fontFamily = ' -apple-system, BlinkMacSystemFont, "PingFang SC","Helvetica Neue",STHeiti,"Microsoft Yahei",Tahoma,Simsun,sans-serif';
+
+            mixphoto({
+                fileType: 'png',
+                width: 356,
+                height: 627,
+                task: [
+                    {
+                        src: '/test.png',
+                        width: 356,
+                        height: 627,
+                        x: 0,
+                        y: 0
+                    },
+                    {
+                        src: '/icon.png',
+                        width: 50,
+                        height: 50,
+                        x: 76,
+                        y: 400
+                    },
+                    {
+                        src: 'http://www.xxzhushou.cn/statics/images/xxcms5/qr_codeWeixin.jpg',
+                        width: 72,
+                        height: 72,
+                        x: 220,
+                        y: 400
+                    },
+                    {
+                        font: '14px' + fontFamily,
+                        fillStyle: '#3f3f3f',
+                        text: '我家有条大大狗',
+                        x: 104,
+                        y: 470
+                    }
+                ],
+                callback: function (file) {
+                    doc.querySelector("#share").src = file.base64
+                    doc.querySelector("#down").href = file.href
+                    doc.querySelector("#down").download = file.name
+                }
+            });
+
+        })(window, document)
+    </script>
+</body>
+</html>
