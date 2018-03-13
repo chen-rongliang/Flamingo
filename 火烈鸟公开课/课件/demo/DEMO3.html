@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>响应式按钮</title>
+	<style>
+		html,body,div,a{
+			padding:0;
+			margin:0;
+			box-sizing: border-box;
+		}
+		body {
+			text-align: center;
+		}
+		#button {
+			max-width: 640px;
+			margin: 48px auto auto;
+			box-shadow: 1px 1px 6px 1px #ccc;
+		}
+		#button a {
+			display: inline-block;
+			width: 100%;
+			line-height: 48px;
+			color: #fff;
+		}
+		#button a:nth-child(1){
+			background-color: #66caff;
+		}
+		#button a:nth-child(2){
+			background-color: #66a6ff;
+		}
+		@media(max-width:640px){
+			#button a {
+				width: 50%;
+			}
+		}
+	</style>
+  </head>
+  
+  <body>
+    <div id="button">
+      <a>按钮1</a><a>按钮2</a>
+    </div>
+  </body>
+
+</html>
