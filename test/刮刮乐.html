@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,minimum-scale=1,maximum-scale=1,user-scalable=no" />
+  <title>刮刮乐整理版</title>
+  <style media="screen">
+    * {
+      margin: 0;
+      padding: 0;
+    }
+
+    #guaguale {
+      margin: 20px;
+      height: 120px;
+      width: 240px;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="guaguale"></div>
+
+  <script>
+    'use strict';
+
+    function keys(obj, fn) {
+      for (var key in obj) {
+        if (obj.hasOwnProperty(key)) {
+          fn.call(obj, key, obj[key]);
+        }
+      }
+    }
+
+    function css(elem, styleObject) {
+      keys(styleObject, function (key, value) {
+        elem.style[key] = value;
+      });
+    }
+
+    function extend(source, obj) {
+      keys(obj, function (key, value) {
+        source[key] = value;
+      });
+      return source;
+    }
+
+    function addEventListener(elem, obj) {
+      keys(obj, function (key, fn) {
+        var events = key.split(' ');
+        for (var i = 0, max = events.length; i < max; i++) {
+          elem.addEventListener(events[i], fn, false);
+        }
+      });
+    }
+
+    function removeEventListener(elem, obj) {
+      keys(obj, function (key, fn) {
+        var events = key.split(' ');
+        for (var i = 0, max = events.length; i < max; i++) {
+          elem.removeEventListener(events[i], fn);
+        }
+      });
+    }
+
+    function getElemOffset(elem) {
+      var offset = { x: elem.offsetLeft || 0, y: elem.offsetTop || 0 };
+      var offsetParent = elem.offsetParent;
+      if (offsetParent) {
+        var parentOffset = getElemOffset(offsetParent);
+        offset.x += parentOffset.x;
+        offset.y += parentOffset.y;
+      }
+      return offset;
+    }
+
+    function GGL(elem, options) {
+      options = options || {};
+
+      this.parent = elem || document.body;
+      this.options = extend({
+        width: 200,
+        height: 120,
+        radius: 10,
+        callback: function () { console.log('end'); },
+        perspective: 0.6,
+        canvasFillStyle: '#b9b9b9',
+        fillFrameRadius: 2  // 补帧半径，取 radius / 4 和此值 的更小值
+      }, options);
+
+      options = this.options;
+      options.fillFrameRadius = Math.min(
+        options.fillFrameRadius, Math.ceil(options.radius / 4)
+      );
+
+      this._init();
+    }
+
+    var NULL = null;
+
+    extend(GGL.prototype, {
+      dimensions: 25, // 检测百分比的canvas大小，代表 5x5
+      canvas: NULL,
+      src: NULL,
+      _eventHandler: NULL,
+
+      _init: function () {
+        this._appendCanvas();
+      },
+
+      _appendCanvas: function () {
+        var canvas = document.createElement('canvas');
+        this.canvas = canvas;
+        this.parent.appendChild(canvas);
+
+        var percent100 = '100%';
+        css(canvas, { width: percent100, height: percent100 });
+      },
+
+      _initCanvas: function () {
+        var options = this.options;
+        var parent = this.parent;
+        var canvas = this.canvas;
+
+        canvas.width = options.width || parent.clientWidth;
+        canvas.height = options.height || parent.clientHeight;
+      },
+
+      _getCanvasCtx: function () {
+        return this.canvas.getContext('2d');
+      },
+
+      _getEventHandler: function () {
+        var eventHandler = this._eventHandler;
+
+        if (!eventHandler) {
+          var self = this;
+          var clientWidth, clientHeight;
+          var canvasWidth, canvasHeight;
+          var canvasOffsetX, canvasOffsetY;
+          var isDown = false;
+
+          eventHandler = this._eventHandler = {
+            down: function () {
+              isDown = true;
+
+              var canvas = self.canvas;
+              var offset = getElemOffset(canvas);
+
+              clientWidth = canvas.clientWidth;
+              clientHeight = canvas.clientHeight;
+              canvasWidth = canvas.width;
+              canvasHeight = canvas.height;
+              canvasOffsetX = offset.x;
+              canvasOffsetY = offset.y;
+            },
+            move: function (e) {
+              if (!isDown) {
+                return;
+              }
+
+              e.preventDefault();
+
+              if (e.changedTouches) {
+                e = e.targetTouches && e.targetTouches[0] || e.changedTouches && e.changedTouches[0] || e;
+              }
+
+              var x = (e.pageX - canvasOffsetX) * (canvasWidth / clientWidth);
+              var y = (e.pageY - canvasOffsetY) * (canvasHeight / clientHeight);
+
+              self.wipe(x, y);
+            },
+            up: function () {
+              isDown = false;
+
+              self._getPerspective(function (percent) {
+                var options = self.options;
+                var perspective = options.perspective;
+                if (percent >= perspective) {
+                  self._removeListener();
+                  options.callback();
+                }
+              });
+            }
+          };
+        }
+
+        return {
+          'touchstart mousedown': eventHandler.down,
+          'touchmove mousemove': eventHandler.move,
+          'touchend mouseup mouseout': eventHandler.up
+        };
+      },
+
+      _getPerspective: function (callback) {
+        var ctx = this._getCanvasCtx();
+        var size = Math.ceil(Math.sqrt(this.dimensions));
+        var image = new Image();
+        var canvas = this.canvas;
+        var base64 = canvas.toDataURL();
+
+        image.onload = function () {
+          var newCanvas = document.createElement('canvas');
+          newCanvas.width = newCanvas.height = size;
+          var newCtx = newCanvas.getContext('2d');
+
+          newCtx.drawImage(
+            image,
+            0, 0, image.width, image.height,
+            0, 0, size, size
+          );
+
+          var counter = 0;
+          var imageData =
+            newCtx.getImageData(0, 0, size, size).data;
+
+          for (var i = 0, length = imageData.length; i < length;) {
+            var opacity = imageData[i + 3];
+            if (opacity === 0) {
+              counter++;
+            }
+            i += 4;
+          }
+
+          callback(counter / size / size);
+        };
+
+        image.src = base64;
+      },
+
+      _addListener: function () {
+        if (this._eventHandler) {
+          return;
+        }
+
+        addEventListener(
+          this.canvas,
+          this._getEventHandler()
+        );
+      },
+
+      _removeListener: function () {
+        if (!this._eventHandler) {
+          return;
+        }
+
+        removeEventListener(
+          this.canvas,
+          this._getEventHandler()
+        );
+
+        this._eventHandler = null;
+      },
+
+      _execInWipeMode: function (callback) {
+        var ctx = this._getCanvasCtx();
+        var composite = ctx.globalCompositeOperation;
+
+        ctx.globalCompositeOperation = 'destination-out';
+        callback.call(this, ctx);
+        ctx.globalCompositeOperation = composite;
+      },
+
+      _oldX: 0,
+      _oldY: 0,
+      _frameTimer: NULL,
+      // NOTICE: 移动太快，会漏帧，这里进行补帧
+      _fillWipeFrame: function (x, y) {
+        var self = this;
+        var oldX = self._oldX;
+        var oldY = self._oldY;
+        var options = self.options;
+
+        if (oldX > 0 || oldY > 0) {
+          var distanceX = Math.abs(x - oldX),
+            distanceY = Math.abs(y - oldY);
+          var radius = options.fillFrameRadius;
+          var nx, ny, dirX, dirY, perX, perY;
+
+          var vertexCount = 2;
+          var pointCount = Math.floor(
+            Math.max(distanceX / radius, distanceY / radius)
+          );
+
+          if (pointCount > vertexCount) {
+            dirX = oldX > x ? -1 : oldX == x ? 0 : 1;
+            dirY = oldY > y ? -1 : oldY == x ? 0 : 1;
+            perX = distanceX / pointCount;
+            perY = distanceY / pointCount;
+
+            // NOTICE 减去两个顶点
+            pointCount -= vertexCount;
+            // 补充现在两个顶点中，所有缺失的点
+            for (var i = 1; i <= pointCount; i++) {
+              nx = oldX + perX * dirX * i;
+              ny = oldY + perY * dirY * i;
+              self._wipe(nx, ny);
+            }
+          }
+        }
+
+        self._oldX = x;
+        self._oldY = y;
+
+        // 适时把记录的保留记录，删掉
+        clearTimeout(self._frameTimer);
+        self._frameTimer = setTimeout(function () {
+          self._oldX = self._oldY = 0;
+        }, 20);
+      },
+
+      _wipe: function (x, y) {
+        var self = this;
+        var options = self.options;
+
+        self._execInWipeMode(function (ctx) {
+          ctx.beginPath();
+          ctx.arc(x, y, options.radius, 0, Math.PI * 2);
+          ctx.fill();
+        });
+
+        return self;
+      },
+
+      wipe: function (x, y) {
+        // 对坐标 (x, y) 处，进行擦除
+        this._fillWipeFrame(x, y);
+        return this._wipe(x, y);
+      },
+
+      wipeAll: function () {
+        this._removeListener();
+        this._execInWipeMode(function (ctx) {
+          var canvas = this.canvas;
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        });
+
+        return this;
+      },
+
+      reFill: function () {
+        var ctx = this._getCanvasCtx();
+        var canvas = this.canvas;
+
+        ctx.fillStyle = this.options.canvasFillStyle;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        return this;
+      },
+
+      setImage: function (src) {
+        this.src = src;
+        css(this.canvas, {
+          background: 'url(' + src + ') no-repeat center / 100% 100%'
+        });
+        return this;
+      },
+
+      setCallback: function (callback) {
+        this.options.callback = callback;
+        return this;
+      },
+
+      start: function (src) {
+        if (src) {
+          this.setImage(src);
+        }
+
+        this.reFill();
+        this._addListener();
+
+        return this;
+      },
+    });
+
+    var ggl = new GGL(
+      document.getElementById('guaguale'),
+      {
+        // 需要加载图片的尺寸，or相同比例的宽和高
+        width: 240,
+        height: 120,
+        radius: 15,
+        // 刮开 60% 结束
+        perspective: 0.6,
+        callback: function () {
+          alert('结束了');
+        }
+      }
+    );
+
+    ggl.start('http://7u2qrr.com1.z0.glb.clouddn.com/h5_images.jpeg');
+  </script>
+</body>
+
+</html>
